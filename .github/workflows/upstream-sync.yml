@@ -53,14 +53,11 @@ jobs:
           target_sync_branch: ${{ env.TARGET_BRANCH }}
           target_repo_token: ${{ secrets.GITHUB_TOKEN }}
           
-          # 设置为false以执行真实的同步操作
-          test_mode: false
+          # 设置为测试模式，避免直接推送
+          test_mode: true
           
           # 允许合并不相关的历史记录
           upstream_pull_args: '--allow-unrelated-histories'
-          
-          # 设置为测试模式，避免直接推送
-          test_mode: true
 
       # 步骤 2.5: 处理工作流文件冲突
       - name: 移除上游工作流文件并推送
