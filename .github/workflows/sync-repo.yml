@@ -38,6 +38,7 @@ jobs:
     permissions:
       contents: write
       actions: read
+      workflows: write
     
     steps:
     - name: 检出当前仓库
@@ -99,6 +100,28 @@ jobs:
               git merge --abort || true
               git reset --hard upstream/${{ env.SOURCE_BRANCH }}
             fi
+          fi
+        fi
+
+    - name: 处理工作流文件冲突
+      run: |
+        # 保存当前的同步工作流文件
+        if [ -f ".github/workflows/sync-repo.yml" ]; then
+          cp .github/workflows/sync-repo.yml /tmp/sync-repo.yml.backup
+          echo "✅ 已备份同步工作流文件"
+        fi
+        
+        # 如果源仓库有工作流文件，我们选择性地保留或排除
+        if [ -d ".github/workflows" ]; then
+          echo "⚠️  检测到源仓库包含工作流文件"
+          echo "为避免权限问题，将保留当前仓库的同步工作流"
+          
+          # 恢复我们的同步工作流文件
+          if [ -f "/tmp/sync-repo.yml.backup" ]; then
+            mkdir -p .github/workflows
+            cp /tmp/sync-repo.yml.backup .github/workflows/sync-repo.yml
+            git add .github/workflows/sync-repo.yml
+            echo "✅ 已恢复同步工作流文件"
           fi
         fi
 
@@ -191,5 +214,8 @@ jobs:
         echo "1. 检查仓库的 Actions 权限设置"
         echo "2. 确保 Workflow permissions 设置为 'Read and write permissions'"
         echo "3. 验证源仓库 ${{ env.SOURCE_REPO }} 是否可访问"
+        echo "4. 如果源仓库包含工作流文件，确保已添加 'workflows: write' 权限"
+        echo ""
+        echo "权限设置路径：Settings → Actions → General → Workflow permissions"
         echo ""
         echo "请检查工作流日志获取详细信息。"
