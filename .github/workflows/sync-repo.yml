@@ -16,12 +16,21 @@ on:
         description: '目标分支名称'
         required: false
         default: 'synced-main'
+      sync_mode:
+        description: '同步模式'
+        required: false
+        default: 'merge'
+        type: choice
+        options:
+          - merge
+          - replace
 
 env:
   # 配置要同步的源仓库
   SOURCE_REPO: ${{ github.event.inputs.source_repo || 'microsoft/vscode' }}
   SOURCE_BRANCH: 'main'
   TARGET_BRANCH: ${{ github.event.inputs.target_branch || 'synced-main' }}
+  SYNC_MODE: ${{ github.event.inputs.sync_mode || 'merge' }}
 
 jobs:
   sync-repo:
@@ -68,21 +77,35 @@ jobs:
     - name: 同步最新更改
       run: |
         if [ "${{ steps.check_branch.outputs.branch_exists }}" = "true" ]; then
-          # 如果分支已存在，进行合并
-          git merge upstream/${{ env.SOURCE_BRANCH }} --no-edit
+          if [ "${{ env.SYNC_MODE }}" = "replace" ]; then
+            # 替换模式：直接重置到源分支
+            git reset --hard upstream/${{ env.SOURCE_BRANCH }}
+          else
+            # 合并模式：尝试合并，如果失败则使用替换模式
+            if ! git merge upstream/${{ env.SOURCE_BRANCH }} --no-edit --allow-unrelated-histories; then
+              echo "合并失败，切换到替换模式..."
+              git merge --abort || true
+              git reset --hard upstream/${{ env.SOURCE_BRANCH }}
+            fi
+          fi
         fi
 
     - name: 检查是否有更新
       id: check_changes
       run: |
-        if [ "${{ steps.check_branch.outputs.branch_exists }}" = "true" ]; then
-          if git diff --quiet HEAD~1; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          fi
+        # 获取当前 HEAD 的 SHA
+        current_sha=$(git rev-parse HEAD)
+        upstream_sha=$(git rev-parse upstream/${{ env.SOURCE_BRANCH }})
+        
+        echo "当前分支 SHA: $current_sha"
+        echo "上游分支 SHA: $upstream_sha"
+        
+        if [ "$current_sha" = "$upstream_sha" ]; then
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+          echo "同步状态: 已是最新" >> $GITHUB_OUTPUT
         else
           echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "同步状态: 发现更新" >> $GITHUB_OUTPUT
         fi
 
     - name: 推送更改
@@ -93,15 +116,29 @@ jobs:
     - name: 创建同步报告
       if: steps.check_changes.outputs.has_changes == 'true'
       run: |
-        echo "## 同步报告 📋" >> sync_report.md
+        echo "## 🔄 同步报告" >> sync_report.md
         echo "" >> sync_report.md
         echo "**同步时间**: $(date '+%Y-%m-%d %H:%M:%S UTC')" >> sync_report.md
-        echo "**源仓库**: ${{ env.SOURCE_REPO }}" >> sync_report.md
-        echo "**源分支**: ${{ env.SOURCE_BRANCH }}" >> sync_report.md
-        echo "**目标分支**: ${{ env.TARGET_BRANCH }}" >> sync_report.md
+        echo "**源仓库**: [${{ env.SOURCE_REPO }}](https://github.com/${{ env.SOURCE_REPO }})" >> sync_report.md
+        echo "**源分支**: \`${{ env.SOURCE_BRANCH }}\`" >> sync_report.md
+        echo "**目标分支**: \`${{ env.TARGET_BRANCH }}\`" >> sync_report.md
+        echo "**同步模式**: \`${{ env.SYNC_MODE }}\`" >> sync_report.md
         echo "" >> sync_report.md
-        echo "### 最新提交信息" >> sync_report.md
-        git log --oneline -10 upstream/${{ env.SOURCE_BRANCH }} >> sync_report.md
+        
+        # 显示提交差异统计
+        echo "### 📊 变更统计" >> sync_report.md
+        if [ "${{ steps.check_branch.outputs.branch_exists }}" = "true" ]; then
+          commits_ahead=$(git rev-list --count HEAD..upstream/${{ env.SOURCE_BRANCH }} 2>/dev/null || echo "0")
+          commits_behind=$(git rev-list --count upstream/${{ env.SOURCE_BRANCH }}..HEAD 2>/dev/null || echo "0")
+          echo "- 领先源仓库: $commits_behind 个提交" >> sync_report.md
+          echo "- 落后源仓库: $commits_ahead 个提交" >> sync_report.md
+        fi
+        
+        echo "" >> sync_report.md
+        echo "### 📝 最新提交 (最近5个)" >> sync_report.md
+        echo "\`\`\`" >> sync_report.md
+        git log --oneline -5 upstream/${{ env.SOURCE_BRANCH }} >> sync_report.md
+        echo "\`\`\`" >> sync_report.md
 
     - name: 输出同步状态
       run: |
