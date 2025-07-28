@@ -102,10 +102,12 @@ jobs:
         
         if [ "$current_sha" = "$upstream_sha" ]; then
           echo "has_changes=false" >> $GITHUB_OUTPUT
-          echo "同步状态: 已是最新" >> $GITHUB_OUTPUT
+          echo "sync_status=up_to_date" >> $GITHUB_OUTPUT
+          echo "✅ 同步状态: 已是最新"
         else
           echo "has_changes=true" >> $GITHUB_OUTPUT
-          echo "同步状态: 发现更新" >> $GITHUB_OUTPUT
+          echo "sync_status=updated" >> $GITHUB_OUTPUT
+          echo "🔄 同步状态: 发现更新"
         fi
 
     - name: 推送更改
@@ -144,8 +146,11 @@ jobs:
       run: |
         if [ "${{ steps.check_changes.outputs.has_changes }}" = "true" ]; then
           echo "✅ 同步完成！发现并同步了新的更改。"
+          echo "🔄 同步模式: ${{ env.SYNC_MODE }}"
+          echo "📝 源仓库: ${{ env.SOURCE_REPO }}"
         else
           echo "📄 已是最新状态，无需同步。"
+          echo "📝 源仓库: ${{ env.SOURCE_REPO }}"
         fi
 
     - name: 清理远程源
