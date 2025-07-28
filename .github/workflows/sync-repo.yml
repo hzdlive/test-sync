@@ -110,8 +110,16 @@ jobs:
             # 恢复我们自己的.github目录
             if [ -d "/tmp/github-backup" ]; then
               cp -r /tmp/github-backup .github
-              git add .github/
               echo "✅ 已恢复本地.github目录"
+            fi
+            
+            # 提交所有更改
+            git add .
+            if ! git diff --cached --quiet; then
+              git commit -m "同步来自 ${{ env.SOURCE_REPO }} 的更新（替换模式，排除.github目录）"
+              echo "✅ 已提交同步更改"
+            else
+              echo "ℹ️ 没有需要提交的更改"
             fi
           else
             # 合并模式：手动合并，完全排除.github目录
@@ -135,8 +143,16 @@ jobs:
             # 恢复我们自己的.github目录
             if [ -d "/tmp/github-backup" ]; then
               cp -r /tmp/github-backup .github
-              git add .
               echo "✅ 已恢复本地.github目录"
+            fi
+            
+            # 提交所有更改
+            git add .
+            if ! git diff --cached --quiet; then
+              git commit -m "同步来自 ${{ env.SOURCE_REPO }} 的更新（排除.github目录）"
+              echo "✅ 已提交同步更改"
+            else
+              echo "ℹ️ 没有需要提交的更改"
             fi
           fi
         fi
