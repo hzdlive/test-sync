@@ -55,6 +55,9 @@ jobs:
           
           # 设置为false以执行真实的同步操作
           test_mode: false
+          
+          # 允许合并不相关的历史记录
+          git_pull_args: '--allow-unrelated-histories'
 
       # 步骤 3: 同步状态检查
       - name: 同步状态检查
@@ -67,15 +70,18 @@ jobs:
           echo "时间: $(date '+%Y-%m-%d %H:%M:%S UTC')"
           echo ""
           echo "可能的原因："
-          echo "1. 上游仓库的工作流文件发生变更，GitHub自动暂停了同步"
-          echo "2. 源仓库不存在或无法访问"
-          echo "3. 分支名称不正确"
-          echo "4. 权限设置问题"
+          echo "1. 目标仓库和源仓库没有共同的提交历史（unrelated histories）"
+          echo "2. 上游仓库的工作流文件发生变更，GitHub自动暂停了同步"
+          echo "3. 源仓库不存在或无法访问"
+          echo "4. 分支名称不正确"
+          echo "5. 权限设置问题"
           echo ""
           echo "解决方案："
-          echo "1. 手动执行一次 Sync Fork 操作"
-          echo "2. 检查源仓库和分支名称是否正确"
-          echo "3. 确保仓库权限设置正确"
+          echo "1. 如果是unrelated histories错误，工作流已配置--allow-unrelated-histories参数"
+          echo "2. 手动执行一次 Sync Fork 操作"
+          echo "3. 检查源仓库和分支名称是否正确"
+          echo "4. 确保仓库权限设置正确"
+          echo "5. 如果仍然失败，可以尝试先清空目标仓库再同步"
           exit 1
 
       # 步骤 4: 成功通知
