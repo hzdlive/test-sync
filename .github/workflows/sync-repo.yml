@@ -2,8 +2,8 @@ name: 自动同步指定项目
 
 on:
   # 定时触发 - 每天凌晨 2 点运行
-  schedule:
-    - cron: '0 2 * * *'
+  #schedule:
+  #  - cron: '0 2 * * *'
   
   # 允许手动触发
   workflow_dispatch:
