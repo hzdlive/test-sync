@@ -85,12 +85,12 @@ jobs:
           git checkout -b ${{ env.TARGET_BRANCH }} upstream/${{ env.SOURCE_BRANCH }}
         fi
 
-    - name: 同步最新更改（排除.github目录）
+    - name: 同步最新更改（完全排除.github目录）
       run: |
         if [ "${{ steps.check_branch.outputs.branch_exists }}" = "true" ]; then
           if [ "${{ env.SYNC_MODE }}" = "replace" ]; then
-            # 替换模式：重置到源分支但保留.github目录
-            echo "🔄 使用替换模式同步（保留.github目录）"
+            # 替换模式：重置到源分支但完全排除.github目录
+            echo "🔄 使用替换模式同步（完全排除.github目录）"
             
             # 备份当前.github目录
             if [ -d ".github" ]; then
@@ -101,30 +101,42 @@ jobs:
             # 重置到上游分支
             git reset --hard upstream/${{ env.SOURCE_BRANCH }}
             
-            # 恢复.github目录
-            if [ -d "/tmp/github-backup" ]; then
+            # 完全移除源仓库的.github目录
+            if [ -d ".github" ]; then
               rm -rf .github
+              echo "🗑️ 已移除源仓库的.github目录"
+            fi
+            
+            # 恢复我们自己的.github目录
+            if [ -d "/tmp/github-backup" ]; then
               cp -r /tmp/github-backup .github
               git add .github/
-              echo "✅ 已恢复.github目录"
+              echo "✅ 已恢复本地.github目录"
             fi
           else
-            # 合并模式：使用策略合并，排除.github目录冲突
-            echo "🔄 使用合并模式同步（保留.github目录）"
+            # 合并模式：手动合并，完全排除.github目录
+            echo "🔄 使用合并模式同步（完全排除.github目录）"
             
-            # 尝试合并，但排除.github目录的冲突
-            if ! git merge upstream/${{ env.SOURCE_BRANCH }} --no-edit --allow-unrelated-histories -X ours; then
-              echo "⚠️ 合并冲突，使用策略解决..."
-              
-              # 检查是否有.github相关冲突
-              if git status --porcelain | grep -q ".github"; then
-                echo "检测到.github目录冲突，保留本地版本"
-                git checkout --ours .github/
-                git add .github/
-              fi
-              
-              # 继续合并其他文件
-              git commit --no-edit || echo "无需提交"
+            # 备份当前.github目录
+            if [ -d ".github" ]; then
+              cp -r .github /tmp/github-backup
+              echo "✅ 已备份.github目录"
+            fi
+            
+            # 获取上游分支的文件列表，排除.github目录
+            git checkout upstream/${{ env.SOURCE_BRANCH }} -- . || true
+            
+            # 移除任何来自源仓库的.github目录
+            if [ -d ".github" ]; then
+              rm -rf .github
+              echo "🗑️ 已移除源仓库的.github目录"
+            fi
+            
+            # 恢复我们自己的.github目录
+            if [ -d "/tmp/github-backup" ]; then
+              cp -r /tmp/github-backup .github
+              git add .
+              echo "✅ 已恢复本地.github目录"
             fi
           fi
         fi
