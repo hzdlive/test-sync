@@ -57,7 +57,7 @@ jobs:
           test_mode: false
           
           # 允许合并不相关的历史记录
-          git_pull_args: '--allow-unrelated-histories'
+          upstream_pull_args: '--allow-unrelated-histories'
 
       # 步骤 3: 同步状态检查
       - name: 同步状态检查
@@ -77,7 +77,7 @@ jobs:
           echo "5. 权限设置问题"
           echo ""
           echo "解决方案："
-          echo "1. 如果是unrelated histories错误，工作流已配置--allow-unrelated-histories参数"
+          echo "1. 如果是unrelated histories错误，工作流已正确配置upstream_pull_args参数"
           echo "2. 手动执行一次 Sync Fork 操作"
           echo "3. 检查源仓库和分支名称是否正确"
           echo "4. 确保仓库权限设置正确"
