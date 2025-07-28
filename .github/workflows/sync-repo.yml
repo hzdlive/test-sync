@@ -38,7 +38,7 @@ jobs:
     permissions:
       contents: write
       actions: read
-      workflows: write
+      actions: write
     
     steps:
     - name: 检出当前仓库
@@ -214,7 +214,7 @@ jobs:
         echo "1. 检查仓库的 Actions 权限设置"
         echo "2. 确保 Workflow permissions 设置为 'Read and write permissions'"
         echo "3. 验证源仓库 ${{ env.SOURCE_REPO }} 是否可访问"
-        echo "4. 如果源仓库包含工作流文件，确保已添加 'workflows: write' 权限"
+        echo "4. 如果源仓库包含工作流文件，确保已添加 'actions: write' 权限"
         echo ""
         echo "权限设置路径：Settings → Actions → General → Workflow permissions"
         echo ""
