@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 name = "v20250723"
 main = "_worker.js"
 compatibility_date = "2025-07-23"
@@ -8,4 +9,10 @@ name = "60s"
 main = "cf-worker.ts"
 compatibility_date = "2025-01-15"
 compatibility_flags = [ "nodejs_compat_v2" ]
+>>>>>>> upstream/main
+=======
+name = "v20250723"
+main = "_worker.js"
+compatibility_date = "2025-07-23"
+keep_vars = true
 >>>>>>> upstream/main
