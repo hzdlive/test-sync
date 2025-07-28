@@ -1,0 +1,129 @@
+name: 自动同步指定项目
+
+on:
+  # 定时触发 - 每天凌晨 2 点运行
+  schedule:
+    - cron: '0 2 * * *'
+  
+  # 允许手动触发
+  workflow_dispatch:
+    inputs:
+      source_repo:
+        description: '源仓库 (格式: owner/repo)'
+        required: false
+        default: 'microsoft/vscode'
+      target_branch:
+        description: '目标分支名称'
+        required: false
+        default: 'synced-main'
+
+env:
+  # 配置要同步的源仓库
+  SOURCE_REPO: ${{ github.event.inputs.source_repo || 'microsoft/vscode' }}
+  SOURCE_BRANCH: 'main'
+  TARGET_BRANCH: ${{ github.event.inputs.target_branch || 'synced-main' }}
+
+jobs:
+  sync-repo:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出当前仓库
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: 配置 Git
+      run: |
+        git config --global user.name "GitHub Actions Bot"
+        git config --global user.email "actions@github.com"
+
+    - name: 添加源仓库为远程源
+      run: |
+        git remote add upstream https://github.com/${{ env.SOURCE_REPO }}.git
+        git remote -v
+
+    - name: 获取源仓库最新内容
+      run: |
+        git fetch upstream ${{ env.SOURCE_BRANCH }}
+
+    - name: 检查目标分支是否存在
+      id: check_branch
+      run: |
+        if git show-ref --verify --quiet refs/heads/${{ env.TARGET_BRANCH }}; then
+          echo "branch_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "branch_exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: 创建或切换到目标分支
+      run: |
+        if [ "${{ steps.check_branch.outputs.branch_exists }}" = "true" ]; then
+          git checkout ${{ env.TARGET_BRANCH }}
+        else
+          git checkout -b ${{ env.TARGET_BRANCH }} upstream/${{ env.SOURCE_BRANCH }}
+        fi
+
+    - name: 同步最新更改
+      run: |
+        if [ "${{ steps.check_branch.outputs.branch_exists }}" = "true" ]; then
+          # 如果分支已存在，进行合并
+          git merge upstream/${{ env.SOURCE_BRANCH }} --no-edit
+        fi
+
+    - name: 检查是否有更新
+      id: check_changes
+      run: |
+        if [ "${{ steps.check_branch.outputs.branch_exists }}" = "true" ]; then
+          if git diff --quiet HEAD~1; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: 推送更改
+      if: steps.check_changes.outputs.has_changes == 'true'
+      run: |
+        git push origin ${{ env.TARGET_BRANCH }}
+
+    - name: 创建同步报告
+      if: steps.check_changes.outputs.has_changes == 'true'
+      run: |
+        echo "## 同步报告 📋" >> sync_report.md
+        echo "" >> sync_report.md
+        echo "**同步时间**: $(date '+%Y-%m-%d %H:%M:%S UTC')" >> sync_report.md
+        echo "**源仓库**: ${{ env.SOURCE_REPO }}" >> sync_report.md
+        echo "**源分支**: ${{ env.SOURCE_BRANCH }}" >> sync_report.md
+        echo "**目标分支**: ${{ env.TARGET_BRANCH }}" >> sync_report.md
+        echo "" >> sync_report.md
+        echo "### 最新提交信息" >> sync_report.md
+        git log --oneline -10 upstream/${{ env.SOURCE_BRANCH }} >> sync_report.md
+
+    - name: 输出同步状态
+      run: |
+        if [ "${{ steps.check_changes.outputs.has_changes }}" = "true" ]; then
+          echo "✅ 同步完成！发现并同步了新的更改。"
+        else
+          echo "📄 已是最新状态，无需同步。"
+        fi
+
+    - name: 清理远程源
+      run: |
+        git remote remove upstream
+
+  notify-on-failure:
+    runs-on: ubuntu-latest
+    needs: sync-repo
+    if: failure()
+    
+    steps:
+    - name: 发送失败通知
+      run: |
+        echo "❌ 同步失败！"
+        echo "仓库: ${{ env.SOURCE_REPO }}"
+        echo "时间: $(date '+%Y-%m-%d %H:%M:%S UTC')"
+        echo "请检查工作流日志获取详细信息。"
